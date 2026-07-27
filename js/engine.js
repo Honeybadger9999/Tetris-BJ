@@ -186,14 +186,13 @@ class Tetris {
 
   lock() {
     this.mergePiece();
-    let cleared = 0;
-    for (let y = TOTAL - 1; y >= 0; y--) {
-      if (this.grid[y].every(c => c)) {
-        this.grid.splice(y, 1);
-        this.grid.unshift(Array(COLS).fill(0));
-        cleared++; y++;
-      }
+    const full = [];
+    for (let y = 0; y < TOTAL; y++) if (this.grid[y].every(c => c)) full.push(y);
+    for (const y of full) {
+      this.grid.splice(y, 1);
+      this.grid.unshift(Array(COLS).fill(0));
     }
+    const cleared = full.length;
     if (cleared) {
       this.lines += cleared;
       this.score += LINE_SCORE[cleared] * this.level;
@@ -207,7 +206,7 @@ class Tetris {
       this.pendingGarbage = 0;
     }
     this.canHold = true;
-    this.cb.onLock && this.cb.onLock(cleared);
+    this.cb.onLock && this.cb.onLock(cleared, full.map(y => y - HIDDEN));
     if (this.alive) this.spawn();
   }
 
