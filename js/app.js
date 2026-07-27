@@ -11,6 +11,18 @@ function showScreen(id) {
 
 /* ---------- 닉네임 ---------- */
 function getNickname() { return localStorage.getItem('tetris_nick') || ''; }
+
+/* ---------- 설정: ↑ 회전 방향 ---------- */
+function getRotDir() { return localStorage.getItem('tetris_rot') === 'cw' ? 1 : -1; } /* 기본: 반시계 */
+function toggleRotDir() {
+  localStorage.setItem('tetris_rot', getRotDir() === 1 ? 'ccw' : 'cw');
+  refreshRotDirUI();
+}
+function refreshRotDirUI() {
+  const el = $('#rotDirLabel');
+  if (el) el.textContent = getRotDir() === 1 ? '시계 방향' : '반시계 방향';
+}
+
 function setNickname(n) { localStorage.setItem('tetris_nick', n); refreshNickUI(); }
 function refreshNickUI() {
   const n = getNickname();
@@ -50,7 +62,7 @@ function drawBoard(canvas, game) {
   ctx.fillStyle = '#0b0f1a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   /* 격자 */
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.015)';
   for (let x = 1; x < COLS; x++) { ctx.beginPath(); ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, ROWS * CELL); ctx.stroke(); }
   for (let y = 1; y < ROWS; y++) { ctx.beginPath(); ctx.moveTo(0, y * CELL); ctx.lineTo(COLS * CELL, y * CELL); ctx.stroke(); }
   /* 쌓인 블럭 */
@@ -228,7 +240,8 @@ const Input = {
         case 'ArrowLeft': this.dasDir = -1; this.dasTimer = 0; this.game.move(-1); break;
         case 'ArrowRight': this.dasDir = 1; this.dasTimer = 0; this.game.move(1); break;
         case 'ArrowDown': this.keys.soft = true; this.game.softDrop(); this.softTimer = 0; break;
-        case 'ArrowUp': case 'KeyX': this.game.rotate(1); break;
+        case 'ArrowUp': this.game.rotate(getRotDir()); break;
+        case 'KeyX': this.game.rotate(1); break;
         case 'KeyZ': this.game.rotate(-1); break;
         case 'Space': e.preventDefault(); this.game.hardDrop(); break;
         case 'KeyC': case 'ShiftLeft': case 'ShiftRight': this.game.holdPiece(); break;
@@ -259,7 +272,7 @@ const Input = {
     bind('#tLeft', () => this.game && this.game.alive && !this.paused && this.game.move(-1), true);
     bind('#tRight', () => this.game && this.game.alive && !this.paused && this.game.move(1), true);
     bind('#tDown', () => this.game && this.game.alive && !this.paused && this.game.softDrop(), true);
-    bind('#tRot', () => this.game && this.game.alive && !this.paused && this.game.rotate(1));
+    bind('#tRot', () => this.game && this.game.alive && !this.paused && this.game.rotate(getRotDir()));
     bind('#tDrop', () => this.game && this.game.alive && !this.paused && this.game.hardDrop());
     bind('#tHold', () => this.game && this.game.alive && !this.paused && this.game.holdPiece());
   },
@@ -660,6 +673,8 @@ function escapeHtml(s) {
 window.addEventListener('DOMContentLoaded', () => {
   Input.init();
   refreshNickUI();
+  refreshRotDirUI();
+  $('#btnRotDir').onclick = toggleRotDir;
 
   $('#btnSingle').onclick = () => Session.startSingle();
   $('#btn1v1').onclick = () => Lobby.open(2);
