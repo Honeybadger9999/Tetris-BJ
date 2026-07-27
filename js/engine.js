@@ -231,7 +231,7 @@ class Tetris {
   gravityMs() {
     const base = 1000 * Math.pow(0.85, this.level - 1);
     /* 플레이 시간에 따른 완만한 추가 가속: 분당 3%씩, 최대 2배까지 */
-    const timeFactor = Math.max(0.5, Math.pow(0.97, this.elapsed / 60000));
+    const timeFactor = Math.max(0.5, Math.pow(0.95, this.elapsed / 60000));
     return Math.max(60, base * timeFactor);
   }
 
