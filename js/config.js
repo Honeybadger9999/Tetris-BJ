@@ -6,8 +6,7 @@
 'use strict';
 
 const SUPABASE_URL = 'https://poutdeqosfmktfkatlhw.supabase.co';       // 예: 'https://xxxxxxxx.supabase.co'
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvdXRkZXFvc2Zta3Rma2F0bGh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxMDQ0NDIsImV4cCI6MjEwMDY4MDQ0Mn0.9kbz2iGkWyl1N6a1Py1oOZt84JaRCybuAjAgqNL-hhE
-';  // 예: 'eyJhbGciOi...'
+const SUPABASE_ANON_KEY = 'sb_publishable_odKoX3XNzcb9MVbjUMpCVw_MKa2wYs4';  // 예: 'eyJhbGciOi...'
 
 const SB = (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase)
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
