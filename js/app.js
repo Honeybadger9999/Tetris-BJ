@@ -59,13 +59,15 @@ function drawBoard(canvas, game) {
     if (c) drawCell(ctx, x, y - HIDDEN, CELL, COLORS[c]);
   }
   if (!game.alive) return;
-  /* 고스트 */
+  /* 고스트 (연하게) */
   const gy = game.ghostY();
   const { mat, x: px, y: py, type } = game.cur;
+  ctx.globalAlpha = 0.22;
   for (let y = 0; y < mat.length; y++) for (let x = 0; x < mat.length; x++) {
     if (mat[y][x] && gy + y >= HIDDEN)
       drawCell(ctx, px + x, gy + y - HIDDEN, CELL, COLORS[type], true);
   }
+  ctx.globalAlpha = 1;
   /* 현재 조각 */
   for (let y = 0; y < mat.length; y++) for (let x = 0; x < mat.length; x++) {
     if (mat[y][x] && py + y >= HIDDEN)
@@ -106,6 +108,42 @@ function drawNext(canvas, game) {
   game.queue.slice(0, 5).forEach((t, i) => {
     drawPieceAt(ctx, t, canvas.width / 2, 34 + i * 62, 18);
   });
+}
+
+/* ---------- 줄 삭제 이펙트 ---------- */
+const Effects = { rows: [], text: null };
+
+function addClearEffect(cleared, rows) {
+  const t0 = performance.now();
+  rows.forEach(y => { if (y >= 0) Effects.rows.push({ y, t0 }); });
+  if (cleared >= 2) {
+    const label = { 2: 'DOUBLE', 3: 'TRIPLE', 4: 'TETRIS!' }[cleared];
+    Effects.text = { label, t0 };
+  }
+}
+
+function drawEffects(canvas) {
+  const ctx = canvas.getContext('2d');
+  const now = performance.now();
+  for (let i = Effects.rows.length - 1; i >= 0; i--) {
+    const e = Effects.rows[i];
+    const p = (now - e.t0) / 280;
+    if (p >= 1) { Effects.rows.splice(i, 1); continue; }
+    ctx.fillStyle = `rgba(255,255,255,${0.9 * (1 - p)})`;
+    ctx.fillRect(0, e.y * CELL, COLS * CELL, CELL);
+  }
+  if (Effects.text) {
+    const p = (now - Effects.text.t0) / 800;
+    if (p >= 1) { Effects.text = null; return; }
+    ctx.save();
+    ctx.globalAlpha = p < 0.7 ? 1 : (1 - p) / 0.3;
+    ctx.font = "22px 'Press Start 2P', monospace";
+    ctx.textAlign = 'center';
+    ctx.fillStyle = Effects.text.label === 'TETRIS!' ? '#ffd60a' : '#25e2e2';
+    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 16;
+    ctx.fillText(Effects.text.label, canvas.width / 2, canvas.height / 2 - 40 - p * 26);
+    ctx.restore();
+  }
 }
 
 function drawSnapshot(canvas, snap) {
@@ -199,7 +237,7 @@ const Session = {
   startSingle() {
     this.mode = 'single';
     this.game = new Tetris(null, {
-      onLock: () => {},
+      onLock: (cleared, rows) => addClearEffect(cleared, rows),
       onTopOut: () => this.singleGameOver(),
     });
     Input.game = this.game; Input.paused = false;
@@ -230,7 +268,7 @@ const Session = {
       v.oppEls[p.id] = wrap;
     }
     this.game = new Tetris(seed, {
-      onLock: (cleared) => this.onVersusLock(cleared),
+      onLock: (cleared, rows) => { addClearEffect(cleared, rows); this.onVersusLock(cleared); },
       onTopOut: () => this.onMyTopout(),
     });
     Input.game = this.game; Input.paused = false;
@@ -341,6 +379,37 @@ const Session = {
       `<span class="sub">${g.lines}줄 · 레벨 ${g.level}</span>`;
     const btns = $('#overlayButtons');
     btns.innerHTML = '';
+    /* 랭킹 등록 폼 */
+    if (Leaderboard.available() && g.score > 0) {
+      const wrap = document.createElement('div');
+      wrap.className = 'rank-submit';
+      wrap.innerHTML =
+        `<input id="rankNick" maxlength="12" placeholder="닉네임 (최대 12자)" value="${escapeHtml(getNickname())}">
+         <button id="rankSubmitBtn">🏆 랭킹 등록</button>`;
+      btns.appendChild(wrap);
+      wrap.querySelector('#rankSubmitBtn').onclick = async () => {
+        const nick = wrap.querySelector('#rankNick').value.trim().slice(0, 12);
+        if (!nick) { wrap.querySelector('#rankNick').focus(); return; }
+        setNickname(nick);
+        const btn = wrap.querySelector('#rankSubmitBtn');
+        btn.disabled = true; btn.textContent = '등록 중...';
+        try {
+          await Leaderboard.submit(nick, g.score, g.lines, g.level);
+          wrap.innerHTML = '<div class="done">✓ 랭킹에 등록되었습니다</div>';
+          const view = document.createElement('button');
+          view.textContent = '랭킹 보기';
+          view.onclick = () => { ov.classList.remove('show'); this.stopLoop(); RankUI.open('week'); };
+          wrap.appendChild(view);
+        } catch (_) {
+          btn.disabled = false; btn.textContent = '🏆 랭킹 등록 (다시 시도)';
+        }
+      };
+    } else if (!Leaderboard.available()) {
+      const note = document.createElement('div');
+      note.className = 'sub';
+      note.textContent = '랭킹 등록은 Supabase 설정 후 사용할 수 있습니다';
+      btns.appendChild(note);
+    }
     const mk = (label, fn) => {
       const b = document.createElement('button');
       b.textContent = label; b.onclick = fn; btns.appendChild(b); return b;
@@ -348,19 +417,6 @@ const Session = {
     mk('다시 하기', () => this.startSingle());
     mk('메뉴로', () => { this.stopLoop(); showScreen('screen-menu'); });
     ov.classList.add('show');
-    /* 점수 등록 */
-    if (Leaderboard.available() && g.score > 0) {
-      const nick = await ensureNickname();
-      if (nick) {
-        try {
-          await Leaderboard.submit(nick, g.score, g.lines, g.level);
-          const note = document.createElement('div');
-          note.className = 'sub';
-          note.textContent = '✓ 랭킹에 등록되었습니다';
-          $('#overlayMsg').appendChild(note);
-        } catch (_) {}
-      }
-    }
   },
 
   runLoop() {
@@ -378,6 +434,7 @@ const Session = {
       }
       if (this.game) {
         drawBoard($('#board'), this.game);
+        drawEffects($('#board'));
         drawHold($('#holdCanvas'), this.game);
         drawNext($('#nextCanvas'), this.game);
         $('#statScore').textContent = this.game.score.toLocaleString();
@@ -589,3 +646,4 @@ window.addEventListener('DOMContentLoaded', () => {
     $('#setupNote').style.display = 'block';
   }
 });
+
