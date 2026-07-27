@@ -62,7 +62,7 @@ function drawBoard(canvas, game) {
   /* 고스트 (연하게) */
   const gy = game.ghostY();
   const { mat, x: px, y: py, type } = game.cur;
-  ctx.globalAlpha = 0.2;
+  ctx.globalAlpha = 0.22;
   for (let y = 0; y < mat.length; y++) for (let x = 0; x < mat.length; x++) {
     if (mat[y][x] && gy + y >= HIDDEN)
       drawCell(ctx, px + x, gy + y - HIDDEN, CELL, COLORS[type], true);
@@ -111,11 +111,32 @@ function drawNext(canvas, game) {
 }
 
 /* ---------- 줄 삭제 이펙트 ---------- */
-const Effects = { rows: [], text: null };
+const Effects = { rows: [], text: null, particles: [], shake: null };
+const REDUCED_MOTION = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PARTICLE_COLORS = ['#25e2e2', '#ffd60a', '#b14aed', '#3ddc55', '#ef476f', '#ffffff'];
 
 function addClearEffect(cleared, rows) {
   const t0 = performance.now();
   (rows || []).forEach(y => { if (y >= 0) Effects.rows.push({ y, t0 }); });
+  if (!REDUCED_MOTION) {
+    /* 파티클: 지워진 줄에서 사방으로 튀는 조각들 */
+    (rows || []).forEach(y => {
+      if (y < 0) return;
+      for (let i = 0; i < 16; i++) {
+        Effects.particles.push({
+          x: (i + 0.5) * (COLS * CELL / 16),
+          y: y * CELL + CELL / 2,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: -0.1 - Math.random() * 0.45,
+          size: 3 + Math.random() * 5,
+          color: PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)],
+          t0,
+        });
+      }
+    });
+    /* 화면 흔들림: 지운 줄 수에 비례 */
+    if (cleared > 0) Effects.shake = { mag: [0, 2, 4, 6, 10][cleared], t0 };
+  }
   if (cleared >= 2) {
     const label = { 2: 'DOUBLE', 3: 'TRIPLE', 4: 'TETRIS!' }[cleared];
     Effects.text = { label, t0 };
@@ -125,23 +146,53 @@ function addClearEffect(cleared, rows) {
 function drawEffects(canvas) {
   const ctx = canvas.getContext('2d');
   const now = performance.now();
+  /* 줄 플래시: 흰색 → 색 번짐 두 단계 */
   for (let i = Effects.rows.length - 1; i >= 0; i--) {
     const e = Effects.rows[i];
-    const p = (now - e.t0) / 280;
+    const p = (now - e.t0) / 340;
     if (p >= 1) { Effects.rows.splice(i, 1); continue; }
-    ctx.fillStyle = `rgba(255,255,255,${0.9 * (1 - p)})`;
-    ctx.fillRect(0, e.y * CELL, COLS * CELL, CELL);
+    ctx.save();
+    ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 24 * (1 - p);
+    ctx.fillStyle = `rgba(255,255,255,${0.95 * (1 - p)})`;
+    const grow = 1 + p * 0.6;
+    ctx.fillRect(0, e.y * CELL + CELL * (1 - grow) / 2, COLS * CELL, CELL * grow);
+    ctx.restore();
   }
+  /* 파티클 */
+  for (let i = Effects.particles.length - 1; i >= 0; i--) {
+    const p = Effects.particles[i];
+    const t = now - p.t0;
+    if (t >= 700) { Effects.particles.splice(i, 1); continue; }
+    const px = p.x + p.vx * t;
+    const py = p.y + p.vy * t + 0.0009 * t * t; /* 중력 */
+    ctx.globalAlpha = 1 - t / 700;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(px, py, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+  /* 화면 흔들림 */
+  if (Effects.shake) {
+    const p = (now - Effects.shake.t0) / 320;
+    if (p >= 1) { Effects.shake = null; canvas.style.transform = ''; }
+    else {
+      const m = Effects.shake.mag * (1 - p);
+      canvas.style.transform = `translate(${(Math.random() - 0.5) * m}px, ${(Math.random() - 0.5) * m}px)`;
+    }
+  }
+  /* 콤보 텍스트: 팍 커졌다 자리잡고 떠오르며 사라짐 */
   if (Effects.text) {
-    const p = (now - Effects.text.t0) / 800;
+    const p = (now - Effects.text.t0) / 900;
     if (p >= 1) { Effects.text = null; return; }
     ctx.save();
     ctx.globalAlpha = p < 0.7 ? 1 : (1 - p) / 0.3;
-    ctx.font = "22px 'Press Start 2P', monospace";
+    const pop = p < 0.12 ? 2.0 - (p / 0.12) * 1.0 : 1;
+    ctx.translate(canvas.width / 2, canvas.height / 2 - 40 - Math.max(0, p - 0.12) * 34);
+    ctx.scale(pop, pop);
+    ctx.font = "26px 'Press Start 2P', monospace";
     ctx.textAlign = 'center';
     ctx.fillStyle = Effects.text.label === 'TETRIS!' ? '#ffd60a' : '#25e2e2';
-    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 16;
-    ctx.fillText(Effects.text.label, canvas.width / 2, canvas.height / 2 - 40 - p * 26);
+    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 26;
+    ctx.fillText(Effects.text.label, 0, 0);
     ctx.restore();
   }
 }
@@ -646,5 +697,3 @@ window.addEventListener('DOMContentLoaded', () => {
     $('#setupNote').style.display = 'block';
   }
 });
-
-
