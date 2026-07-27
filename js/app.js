@@ -62,7 +62,7 @@ function drawBoard(canvas, game) {
   /* 고스트 (연하게) */
   const gy = game.ghostY();
   const { mat, x: px, y: py, type } = game.cur;
-  ctx.globalAlpha = 0.22;
+  ctx.globalAlpha = 0.2;
   for (let y = 0; y < mat.length; y++) for (let x = 0; x < mat.length; x++) {
     if (mat[y][x] && gy + y >= HIDDEN)
       drawCell(ctx, px + x, gy + y - HIDDEN, CELL, COLORS[type], true);
@@ -115,7 +115,7 @@ const Effects = { rows: [], text: null };
 
 function addClearEffect(cleared, rows) {
   const t0 = performance.now();
-  rows.forEach(y => { if (y >= 0) Effects.rows.push({ y, t0 }); });
+  (rows || []).forEach(y => { if (y >= 0) Effects.rows.push({ y, t0 }); });
   if (cleared >= 2) {
     const label = { 2: 'DOUBLE', 3: 'TRIPLE', 4: 'TETRIS!' }[cleared];
     Effects.text = { label, t0 };
@@ -646,4 +646,5 @@ window.addEventListener('DOMContentLoaded', () => {
     $('#setupNote').style.display = 'block';
   }
 });
+
 
