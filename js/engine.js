@@ -73,6 +73,7 @@ class Tetris {
     this.score = 0; this.lines = 0; this.level = 1;
     this.alive = true;
     this.pendingGarbage = 0;
+    this.elapsed = 0;
     this.dropTimer = 0;
     this.lockTimer = -1;      /* -1: 접지 아님 */
     this.lockResets = 0;
@@ -227,10 +228,16 @@ class Tetris {
 
   receiveGarbage(n) { this.pendingGarbage += n; }
 
-  gravityMs() { return Math.max(60, 1000 * Math.pow(0.85, this.level - 1)); }
+  gravityMs() {
+    const base = 1000 * Math.pow(0.85, this.level - 1);
+    /* 플레이 시간에 따른 완만한 추가 가속: 분당 3%씩, 최대 2배까지 */
+    const timeFactor = Math.max(0.5, Math.pow(0.97, this.elapsed / 60000));
+    return Math.max(60, base * timeFactor);
+  }
 
   tick(dt) {
     if (!this.alive) return;
+    this.elapsed += dt;
     if (this.grounded()) {
       if (this.lockTimer < 0) this.lockTimer = 0;
       this.lockTimer += dt;
