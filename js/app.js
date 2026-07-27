@@ -74,7 +74,7 @@ function drawBoard(canvas, game) {
   /* 고스트 (연하게) */
   const gy = game.ghostY();
   const { mat, x: px, y: py, type } = game.cur;
-  ctx.globalAlpha = 0.22;
+  ctx.globalAlpha = 0.21;
   for (let y = 0; y < mat.length; y++) for (let x = 0; x < mat.length; x++) {
     if (mat[y][x] && gy + y >= HIDDEN)
       drawCell(ctx, px + x, gy + y - HIDDEN, CELL, COLORS[type], true);
