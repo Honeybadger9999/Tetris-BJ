@@ -98,7 +98,7 @@ class Tetris {
       type: t,
       mat: SHAPES[t].map(r => r.slice()),
       x: t === 'O' ? 4 : 3,
-      y: 0, /* 숨김 영역(상단 2줄)에서 스폰 */
+      y: HIDDEN, /* 보이는 영역 최상단에서 스폰 → 새 블럭/홀드 교체가 즉시 보임 */
       r: 0,
     };
     this.lockTimer = -1; this.lockResets = 0;
@@ -231,7 +231,7 @@ class Tetris {
   gravityMs() {
     const base = 1000 * Math.pow(0.85, this.level - 1);
     /* 플레이 시간에 따른 완만한 추가 가속: 분당 3%씩, 최대 2배까지 */
-    const timeFactor = Math.max(0.5, Math.pow(0.95, this.elapsed / 60000));
+    const timeFactor = Math.max(0.5, Math.pow(0.97, this.elapsed / 60000));
     return Math.max(60, base * timeFactor);
   }
 
