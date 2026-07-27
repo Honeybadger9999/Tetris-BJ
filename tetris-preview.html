@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>TETRIS BATTLE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* TETRIS BATTLE - 클래식 아케이드 다크 테마 */
+:root {
+  --bg: #060913;
+  --panel: #10162a;
+  --line: #232c48;
+  --text: #e8ecf7;
+  --dim: #8a93ad;
+  --accent: #25e2e2;
+  --accent2: #ffd60a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(37,226,226,0.10), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(177,74,237,0.08), transparent);
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.screen { display: none; width: 100%; max-width: 960px; padding: 24px; text-align: center; }
+.screen.active { display: block; }
+
+.logo {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(28px, 6vw, 52px);
+  line-height: 1.35;
+  margin-bottom: 28px;
+  color: var(--accent);
+  text-shadow: 0 0 18px rgba(37,226,226,0.55), 4px 4px 0 #0d3b66;
+}
+
+h2 { font-family: 'Press Start 2P', monospace; font-size: 20px; margin-bottom: 24px; color: var(--accent2); }
+
+.nick-row { margin-bottom: 20px; color: var(--dim); }
+.nick-row span { font-weight: 700; color: var(--text); margin-right: 8px; }
+
+.menu { display: flex; flex-direction: column; gap: 14px; max-width: 320px; margin: 0 auto; }
+
+button {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 17px; font-weight: 700;
+  padding: 14px 20px;
+  background: linear-gradient(180deg, #1b2440, #131a30);
+  color: var(--text);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.06s, border-color 0.15s, box-shadow 0.15s;
+}
+button:hover { border-color: var(--accent); box-shadow: 0 0 14px rgba(37,226,226,0.25); }
+button:active { transform: scale(0.97); }
+button:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+button.ghost { background: transparent; }
+button.mini { font-size: 13px; padding: 6px 12px; }
+button.dim { opacity: 0.5; }
+
+.sub { color: var(--dim); font-size: 13px; margin-top: 16px; line-height: 1.7; }
+.keys { margin-top: 28px; }
+.big { font-size: 34px; font-weight: 700; color: var(--accent2); }
+
+/* ---- 게임 화면 ---- */
+.game-wrap {
+  display: flex; justify-content: center; align-items: flex-start;
+  gap: 16px; flex-wrap: wrap;
+}
+.side { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.panel-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px; color: var(--dim); letter-spacing: 1px; margin-top: 8px;
+}
+canvas { background: #0b0f1a; border: 2px solid var(--line); border-radius: 6px; }
+#board { border-color: #2f3b63; box-shadow: 0 0 30px rgba(37,226,226,0.12); }
+.stat { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.board-wrap { position: relative; }
+#overlay {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  background: rgba(4,6,14,0.82);
+  border-radius: 6px;
+  font-size: 22px; font-weight: 700;
+}
+#overlay.show { display: flex; }
+#overlayButtons { display: flex; flex-direction: column; gap: 10px; }
+
+/* 대전 상대 미니보드 */
+#versusArea { display: none; flex-direction: column; gap: 12px; }
+.opp { background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: 8px; }
+.opp canvas { border: none; }
+.opp-name { font-size: 12px; font-weight: 700; margin-top: 4px; }
+.opp-score { font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.opp.dead { opacity: 0.35; }
+.opp.dead .opp-name::after { content: ' ✕'; color: #ef476f; }
+
+/* 터치 컨트롤 (터치 기기에서만 표시) */
+#touchControls { display: none; margin-top: 14px; gap: 8px; justify-content: center; }
+#touchControls button { font-size: 20px; padding: 12px 0; width: 52px; }
+@media (pointer: coarse) { #touchControls { display: flex; } }
+
+/* ---- 대기실 ---- */
+.box {
+  background: var(--panel); border: 2px solid var(--line); border-radius: 12px;
+  max-width: 340px; margin: 0 auto 20px;
+  padding: 24px; display: flex; flex-direction: column; gap: 14px;
+}
+.divider { color: var(--dim); font-size: 13px; }
+input {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 18px; text-align: center; letter-spacing: 6px; text-transform: uppercase;
+  padding: 12px; background: #0b0f1a; color: var(--text);
+  border: 2px solid var(--line); border-radius: 8px; outline: none;
+}
+input:focus { border-color: var(--accent); }
+.code {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 34px; color: var(--accent2); letter-spacing: 8px;
+  text-shadow: 0 0 14px rgba(255,214,10,0.4);
+}
+#memberList { list-style: none; }
+#memberList li { padding: 6px; border-bottom: 1px solid var(--line); font-weight: 700; }
+
+/* ---- 랭킹 ---- */
+#rankTabs { display: flex; gap: 10px; justify-content: center; margin-bottom: 18px; }
+#rankTabs button { font-size: 14px; padding: 8px 18px; }
+#rankTabs button.on { border-color: var(--accent2); color: var(--accent2); }
+.rank-table {
+  width: 100%; max-width: 420px; margin: 0 auto; border-collapse: collapse;
+}
+.rank-table th, .rank-table td { padding: 10px 8px; border-bottom: 1px solid var(--line); }
+.rank-table th { color: var(--dim); font-size: 12px; text-align: left; }
+.rank-table td { text-align: left; font-weight: 700; }
+.rank-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
+@media (max-width: 640px) {
+  #board { width: 250px; height: 500px; }
+  .side.right { display: none; }  /* 좁은 화면: NEXT 패널 숨김 */
+  .screen { padding: 12px; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- 메뉴 -->
+<div id="screen-menu" class="screen active">
+  <h1 class="logo">TETRIS<br>BATTLE</h1>
+  <div class="nick-row">
+    <span id="nickDisplay"></span>
+    <button id="btnNick" class="mini">변경</button>
+  </div>
+  <div class="menu">
+    <button id="btnSingle">싱글 플레이</button>
+    <button id="btn1v1">1:1 대결</button>
+    <button id="btnMulti">멀티 대결 (4인)</button>
+    <button id="btnRank" class="ghost">🏆 랭킹</button>
+  </div>
+  <p id="setupNote" class="sub" style="display:none">
+    ※ 랭킹/대전은 config.js에 Supabase 설정 후 사용할 수 있습니다.
+  </p>
+  <p class="sub keys">← → 이동 · ↑/X 회전 · Z 역회전 · ↓ 소프트드롭<br>Space 하드드롭 · C/Shift 홀드 · P 일시정지</p>
+</div>
+
+<!-- 게임 -->
+<div id="screen-game" class="screen">
+  <div class="game-wrap">
+    <div class="side left">
+      <div class="panel-label">HOLD</div>
+      <canvas id="holdCanvas" width="96" height="96"></canvas>
+      <div class="stats">
+        <div class="panel-label">SCORE</div><div id="statScore" class="stat">0</div>
+        <div class="panel-label">LINES</div><div id="statLines" class="stat">0</div>
+        <div class="panel-label">LEVEL</div><div id="statLevel" class="stat">1</div>
+      </div>
+      <button id="btnGameExit" class="mini">나가기</button>
+    </div>
+    <div class="board-wrap">
+      <canvas id="board" width="300" height="600"></canvas>
+      <div id="overlay">
+        <div id="overlayMsg"></div>
+        <div id="overlayButtons"></div>
+      </div>
+    </div>
+    <div class="side right">
+      <div class="panel-label">NEXT</div>
+      <canvas id="nextCanvas" width="96" height="330"></canvas>
+    </div>
+    <div id="versusArea"></div>
+  </div>
+  <div id="touchControls">
+    <button id="tLeft">◀</button>
+    <button id="tDown">▼</button>
+    <button id="tRight">▶</button>
+    <button id="tRot">⟳</button>
+    <button id="tDrop">⤓</button>
+    <button id="tHold">H</button>
+  </div>
+</div>
+
+<!-- 대전 대기실 -->
+<div id="screen-lobby" class="screen">
+  <h2 id="lobbyTitle">1:1 대결</h2>
+  <div id="lobbySetup" class="box">
+    <button id="btnCreateRoom">방 만들기</button>
+    <div class="divider">또는</div>
+    <input id="joinCode" maxlength="4" placeholder="방 코드 4자리" autocomplete="off">
+    <button id="btnJoinRoom">참가하기</button>
+  </div>
+  <div id="lobbyRoom" class="box" style="display:none">
+    <div class="panel-label">방 코드 (친구에게 공유하세요)</div>
+    <div id="roomCode" class="code"></div>
+    <div class="panel-label">참가자 <span id="memberCount"></span></div>
+    <ul id="memberList"></ul>
+    <button id="startBtn" style="display:none">게임 시작</button>
+    <p id="hostHint" class="sub"></p>
+  </div>
+  <button id="btnLobbyExit" class="ghost">메뉴로</button>
+</div>
+
+<!-- 랭킹 -->
+<div id="screen-rank" class="screen">
+  <h2>🏆 랭킹</h2>
+  <div id="rankTabs">
+    <button data-period="week" class="on">이번 주</button>
+    <button data-period="all">역대 최고</button>
+  </div>
+  <table class="rank-table">
+    <thead><tr><th></th><th>닉네임</th><th class="num">점수</th><th class="num">줄</th></tr></thead>
+    <tbody id="rankBody"></tbody>
+  </table>
+  <p class="sub">주간 랭킹은 매주 월요일에 새로 시작됩니다</p>
+  <button id="btnRankBack" class="ghost">메뉴로</button>
+</div>
+
+<script>
+/* config.js
+ * Supabase 프로젝트 생성 후 아래 두 값을 채워 넣으세요.
+ * (Supabase 대시보드 > Project Settings > API)
+ * 값이 비어 있으면: 싱글 플레이는 정상 동작, 랭킹/대전 모드만 비활성화됩니다.
+ */
+'use strict';
+
+const SUPABASE_URL = '';       // 예: 'https://xxxxxxxx.supabase.co'
+const SUPABASE_ANON_KEY = '';  // 예: 'eyJhbGciOi...'
+
+const SB = (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+/* engine.js - 테트리스 코어 로직 (렌더링 없음) */
+'use strict';
+
+const COLS = 10, ROWS = 20, HIDDEN = 2, TOTAL = ROWS + HIDDEN;
+
+const SHAPES = {
+  I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+  J: [[1,0,0],[1,1,1],[0,0,0]],
+  L: [[0,0,1],[1,1,1],[0,0,0]],
+  O: [[1,1],[1,1]],
+  S: [[0,1,1],[1,1,0],[0,0,0]],
+  T: [[0,1,0],[1,1,1],[0,0,0]],
+  Z: [[1,1,0],[0,1,1],[0,0,0]],
+};
+
+const COLORS = {
+  I:'#25e2e2', J:'#4361ee', L:'#ff9f1c', O:'#ffd60a',
+  S:'#3ddc55', T:'#b14aed', Z:'#ef476f', G:'#5c6470',
+};
+
+/* SRS 킥 테이블 (SRS 좌표계: y 위쪽 양수 → 적용 시 y 부호 반전) */
+const KICKS_JLSTZ = {
+  '0>1': [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+  '1>0': [[0,0],[1,0],[1,-1],[0,2],[1,2]],
+  '1>2': [[0,0],[1,0],[1,-1],[0,2],[1,2]],
+  '2>1': [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+  '2>3': [[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+  '3>2': [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+  '3>0': [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+  '0>3': [[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+};
+const KICKS_I = {
+  '0>1': [[0,0],[-2,0],[1,0],[-2,-1],[1,2]],
+  '1>0': [[0,0],[2,0],[-1,0],[2,1],[-1,-2]],
+  '1>2': [[0,0],[-1,0],[2,0],[-1,2],[2,-1]],
+  '2>1': [[0,0],[1,0],[-2,0],[1,-2],[-2,1]],
+  '2>3': [[0,0],[2,0],[-1,0],[2,1],[-1,-2]],
+  '3>2': [[0,0],[-2,0],[1,0],[-2,-1],[1,2]],
+  '3>0': [[0,0],[1,0],[-2,0],[1,-2],[-2,1]],
+  '0>3': [[0,0],[-1,0],[2,0],[-1,2],[2,-1]],
+};
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function rotateCW(m) {
+  const n = m.length, out = [];
+  for (let y = 0; y < n; y++) { out.push([]); for (let x = 0; x < n; x++) out[y].push(m[n-1-x][y]); }
+  return out;
+}
+function rotateCCW(m) { return rotateCW(rotateCW(rotateCW(m))); }
+
+const LINE_SCORE = [0, 100, 300, 500, 800];
+const ATTACK = [0, 0, 1, 2, 4]; /* 지운 줄 수 → 가비지 공격 줄 수 */
+
+class Tetris {
+  /* callbacks: onLock(cleared), onTopOut(), onChange() */
+  constructor(seed, callbacks = {}) {
+    this.rng = mulberry32(seed ?? ((Math.random() * 2 ** 31) | 0));
+    this.cb = callbacks;
+    this.grid = Array.from({ length: TOTAL }, () => Array(COLS).fill(0));
+    this.bag = [];
+    this.queue = [];
+    while (this.queue.length < 5) this.queue.push(this.nextFromBag());
+    this.hold = null;
+    this.canHold = true;
+    this.score = 0; this.lines = 0; this.level = 1;
+    this.alive = true;
+    this.pendingGarbage = 0;
+    this.dropTimer = 0;
+    this.lockTimer = -1;      /* -1: 접지 아님 */
+    this.lockResets = 0;
+    this.spawn();
+  }
+
+  nextFromBag() {
+    if (this.bag.length === 0) {
+      this.bag = ['I','J','L','O','S','T','Z'];
+      for (let i = this.bag.length - 1; i > 0; i--) {
+        const j = Math.floor(this.rng() * (i + 1));
+        [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]];
+      }
+    }
+    return this.bag.pop();
+  }
+
+  spawn(type) {
+    const t = type ?? this.queue.shift();
+    if (!type) this.queue.push(this.nextFromBag());
+    this.cur = {
+      type: t,
+      mat: SHAPES[t].map(r => r.slice()),
+      x: t === 'O' ? 4 : 3,
+      y: 0, /* 숨김 영역(상단 2줄)에서 스폰 */
+      r: 0,
+    };
+    this.lockTimer = -1; this.lockResets = 0;
+    if (this.collides(this.cur.mat, this.cur.x, this.cur.y)) {
+      /* 스폰 위치 겹침 → 게임 오버 */
+      this.alive = false;
+      this.mergePiece();
+      this.cb.onTopOut && this.cb.onTopOut();
+    }
+    this.cb.onChange && this.cb.onChange();
+  }
+
+  collides(mat, px, py) {
+    for (let y = 0; y < mat.length; y++) for (let x = 0; x < mat.length; x++) {
+      if (!mat[y][x]) continue;
+      const gx = px + x, gy = py + y;
+      if (gx < 0 || gx >= COLS || gy >= TOTAL) return true;
+      if (gy >= 0 && this.grid[gy][gx]) return true;
+    }
+    return false;
+  }
+
+  grounded() { return this.collides(this.cur.mat, this.cur.x, this.cur.y + 1); }
+
+  resetLock() {
+    if (this.lockTimer >= 0 && this.lockResets < 15) { this.lockTimer = 0; this.lockResets++; }
+  }
+
+  move(dx) {
+    if (!this.alive) return false;
+    if (!this.collides(this.cur.mat, this.cur.x + dx, this.cur.y)) {
+      this.cur.x += dx; this.resetLock(); this.cb.onChange && this.cb.onChange();
+      return true;
+    }
+    return false;
+  }
+
+  rotate(dir) { /* dir: 1 CW, -1 CCW */
+    if (!this.alive || this.cur.type === 'O') return;
+    const from = this.cur.r, to = (from + (dir === 1 ? 1 : 3)) % 4;
+    const mat = dir === 1 ? rotateCW(this.cur.mat) : rotateCCW(this.cur.mat);
+    const table = this.cur.type === 'I' ? KICKS_I : KICKS_JLSTZ;
+    for (const [dx, dy] of table[`${from}>${to}`]) {
+      const nx = this.cur.x + dx, ny = this.cur.y - dy; /* SRS y 반전 */
+      if (!this.collides(mat, nx, ny)) {
+        this.cur.mat = mat; this.cur.x = nx; this.cur.y = ny; this.cur.r = to;
+        this.resetLock(); this.cb.onChange && this.cb.onChange();
+        return;
+      }
+    }
+  }
+
+  softDrop() {
+    if (!this.alive) return;
+    if (!this.grounded()) { this.cur.y++; this.score += 1; this.cb.onChange && this.cb.onChange(); }
+  }
+
+  hardDrop() {
+    if (!this.alive) return;
+    let d = 0;
+    while (!this.grounded()) { this.cur.y++; d++; }
+    this.score += d * 2;
+    this.lock();
+  }
+
+  holdPiece() {
+    if (!this.alive || !this.canHold) return;
+    this.canHold = false;
+    const held = this.hold;
+    this.hold = this.cur.type;
+    this.spawn(held ?? undefined);
+  }
+
+  ghostY() {
+    let y = this.cur.y;
+    while (!this.collides(this.cur.mat, this.cur.x, y + 1)) y++;
+    return y;
+  }
+
+  mergePiece() {
+    const { mat, x, y, type } = this.cur;
+    for (let py = 0; py < mat.length; py++) for (let px = 0; px < mat.length; px++) {
+      if (mat[py][px] && y + py >= 0) this.grid[y + py][x + px] = type;
+    }
+  }
+
+  lock() {
+    this.mergePiece();
+    let cleared = 0;
+    for (let y = TOTAL - 1; y >= 0; y--) {
+      if (this.grid[y].every(c => c)) {
+        this.grid.splice(y, 1);
+        this.grid.unshift(Array(COLS).fill(0));
+        cleared++; y++;
+      }
+    }
+    if (cleared) {
+      this.lines += cleared;
+      this.score += LINE_SCORE[cleared] * this.level;
+      this.level = Math.floor(this.lines / 10) + 1;
+    }
+    /* 대전: 공격받은 가비지 삽입 (줄을 지웠으면 그만큼 상쇄) */
+    if (this.pendingGarbage > 0) {
+      const offset = Math.min(this.pendingGarbage, ATTACK[cleared]);
+      this.pendingGarbage -= offset;
+      if (this.pendingGarbage > 0) this.insertGarbage(this.pendingGarbage);
+      this.pendingGarbage = 0;
+    }
+    this.canHold = true;
+    this.cb.onLock && this.cb.onLock(cleared);
+    if (this.alive) this.spawn();
+  }
+
+  insertGarbage(n) {
+    n = Math.min(n, 8);
+    for (let i = 0; i < n; i++) {
+      const row = Array(COLS).fill('G');
+      row[Math.floor(this.rng() * COLS)] = 0;
+      this.grid.shift();
+      this.grid.push(row);
+    }
+    /* 위로 밀려서 천장에 닿았는지 검사 */
+    if (this.grid[HIDDEN - 1].some(c => c)) {
+      this.alive = false;
+      this.cb.onTopOut && this.cb.onTopOut();
+    }
+  }
+
+  receiveGarbage(n) { this.pendingGarbage += n; }
+
+  gravityMs() { return Math.max(60, 1000 * Math.pow(0.85, this.level - 1)); }
+
+  tick(dt) {
+    if (!this.alive) return;
+    if (this.grounded()) {
+      if (this.lockTimer < 0) this.lockTimer = 0;
+      this.lockTimer += dt;
+      if (this.lockTimer >= 500) this.lock();
+    } else {
+      this.lockTimer = -1;
+      this.dropTimer += dt;
+      const g = this.gravityMs();
+      while (this.dropTimer >= g && !this.grounded()) {
+        this.cur.y++; this.dropTimer -= g;
+        this.cb.onChange && this.cb.onChange();
+      }
+    }
+  }
+
+  /* 대전 동기화용 직렬화 (보이는 20줄 + 현재 조각 합성) */
+  snapshot() {
+    const g = this.grid.slice(HIDDEN).map(r => r.slice());
+    if (this.alive) {
+      const { mat, x, y, type } = this.cur;
+      for (let py = 0; py < mat.length; py++) for (let px = 0; px < mat.length; px++) {
+        const gy = y + py - HIDDEN, gx = x + px;
+        if (mat[py][px] && gy >= 0 && gy < ROWS) g[gy][gx] = type;
+      }
+    }
+    return g.map(r => r.map(c => c || '.').join('')).join('|');
+  }
+}
+
+/* leaderboard.js - 싱글 모드 점수 저장 및 랭킹 조회 */
+'use strict';
+
+const Leaderboard = {
+  available() { return !!SB; },
+
+  async submit(nickname, score, lines, level) {
+    if (!SB || score <= 0) return;
+    await SB.from('scores').insert({ nickname, score, lines, level });
+  },
+
+  /* period: 'all' | 'week'  → 닉네임별 최고 점수 상위 10명 */
+  async top(period) {
+    if (!SB) return [];
+    let q = SB.from('scores')
+      .select('nickname, score, lines, level, created_at')
+      .order('score', { ascending: false })
+      .limit(100);
+    if (period === 'week') {
+      const now = new Date();
+      const day = (now.getDay() + 6) % 7; /* 월요일 시작 */
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - day);
+      monday.setHours(0, 0, 0, 0);
+      q = q.gte('created_at', monday.toISOString());
+    }
+    const { data, error } = await q;
+    if (error || !data) return [];
+    const seen = new Set(), out = [];
+    for (const row of data) {
+      if (seen.has(row.nickname)) continue;
+      seen.add(row.nickname);
+      out.push(row);
+      if (out.length >= 10) break;
+    }
+    return out;
+  },
+};
+
+/* net.js - Supabase Realtime 기반 대전 방 관리 */
+'use strict';
+
+const Net = {
+  channel: null,
+  code: null,
+  playerId: Math.random().toString(36).slice(2, 10),
+  maxPlayers: 2,
+  members: {},          /* id -> {nickname, maxPlayers} */
+  handlers: {},         /* onMembers, onStart, onState, onAttack, onTopout, onLeaveGame */
+
+  available() { return !!SB; },
+
+  makeCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let c = '';
+    for (let i = 0; i < 4; i++) c += chars[Math.floor(Math.random() * chars.length)];
+    return c;
+  },
+
+  async create(nickname, maxPlayers) {
+    this.maxPlayers = maxPlayers;
+    return this.join(this.makeCode(), nickname, maxPlayers, true);
+  },
+
+  async join(code, nickname, maxPlayers, isCreate = false) {
+    this.leave();
+    this.code = code.toUpperCase();
+    const ch = SB.channel('room:' + this.code, {
+      config: { broadcast: { self: false }, presence: { key: this.playerId } },
+    });
+    this.channel = ch;
+
+    ch.on('presence', { event: 'sync' }, () => {
+      const state = ch.presenceState();
+      this.members = {};
+      for (const id of Object.keys(state)) {
+        const meta = state[id][0];
+        this.members[id] = meta;
+        if (meta.maxPlayers) this.maxPlayers = meta.maxPlayers;
+      }
+      this.handlers.onMembers && this.handlers.onMembers(this.members);
+    });
+    ch.on('broadcast', { event: 'start' }, ({ payload }) =>
+      this.handlers.onStart && this.handlers.onStart(payload));
+    ch.on('broadcast', { event: 'state' }, ({ payload }) =>
+      this.handlers.onState && this.handlers.onState(payload));
+    ch.on('broadcast', { event: 'attack' }, ({ payload }) =>
+      this.handlers.onAttack && this.handlers.onAttack(payload));
+    ch.on('broadcast', { event: 'topout' }, ({ payload }) =>
+      this.handlers.onTopout && this.handlers.onTopout(payload));
+
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('연결 시간 초과')), 8000);
+      ch.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          clearTimeout(timeout);
+          await ch.track({
+            nickname,
+            maxPlayers: isCreate ? maxPlayers : undefined,
+            joinedAt: Date.now(),
+          });
+          resolve();
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          clearTimeout(timeout);
+          reject(new Error('방 연결 실패'));
+        }
+      });
+    });
+
+    /* 참가자: 방 존재/정원 확인 (presence 동기화 대기) */
+    if (!isCreate) {
+      await new Promise(r => setTimeout(r, 1200));
+      const ids = Object.keys(this.members);
+      if (ids.length < 2) { this.leave(); throw new Error('존재하지 않는 방 코드입니다.'); }
+      if (ids.length > this.maxPlayers) { this.leave(); throw new Error('방 정원이 가득 찼습니다.'); }
+    }
+    return this.code;
+  },
+
+  isHost() {
+    const ids = Object.keys(this.members);
+    if (ids.length === 0) return false;
+    /* joinedAt이 가장 빠른 사람이 호스트 (동률이면 id 순) */
+    ids.sort((a, b) =>
+      (this.members[a].joinedAt - this.members[b].joinedAt) || a.localeCompare(b));
+    return ids[0] === this.playerId;
+  },
+
+  send(event, payload) {
+    this.channel && this.channel.send({ type: 'broadcast', event, payload });
+  },
+
+  startGame() {
+    const seed = (Math.random() * 2 ** 31) | 0;
+    const players = Object.keys(this.members).map(id => ({
+      id, nickname: this.members[id].nickname,
+    }));
+    const payload = { seed, players };
+    this.send('start', payload);
+    return payload; /* 호스트 본인도 사용 */
+  },
+
+  leave() {
+    if (this.channel) { SB.removeChannel(this.channel); this.channel = null; }
+    this.members = {};
+    this.code = null;
+  },
+};
+
+/* app.js - 화면 전환, 렌더링, 입력, 게임 모드 */
+'use strict';
+
+/* ---------- 공통: 화면 전환 ---------- */
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+function showScreen(id) {
+  $$('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+}
+
+/* ---------- 닉네임 ---------- */
+function getNickname() { return localStorage.getItem('tetris_nick') || ''; }
+function setNickname(n) { localStorage.setItem('tetris_nick', n); refreshNickUI(); }
+function refreshNickUI() {
+  const n = getNickname();
+  $('#nickDisplay').textContent = n ? n : '닉네임을 정해주세요';
+}
+async function ensureNickname() {
+  let n = getNickname();
+  if (n) return n;
+  n = (prompt('랭킹과 대전에서 사용할 닉네임 (최대 12자)') || '').trim().slice(0, 12);
+  if (!n) return null;
+  setNickname(n);
+  return n;
+}
+
+/* ---------- 렌더링 ---------- */
+const CELL = 30;
+
+function drawCell(ctx, x, y, size, color, ghost = false) {
+  const px = x * size, py = y * size;
+  if (ghost) {
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.strokeRect(px + 2, py + 2, size - 4, size - 4);
+    return;
+  }
+  ctx.fillStyle = color;
+  ctx.fillRect(px, py, size, size);
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.fillRect(px, py, size, size * 0.18);
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.fillRect(px, py + size * 0.85, size, size * 0.15);
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 1;
+  ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
+}
+
+function drawBoard(canvas, game) {
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0b0f1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  /* 격자 */
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  for (let x = 1; x < COLS; x++) { ctx.beginPath(); ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, ROWS * CELL); ctx.stroke(); }
+  for (let y = 1; y < ROWS; y++) { ctx.beginPath(); ctx.moveTo(0, y * CELL); ctx.lineTo(COLS * CELL, y * CELL); ctx.stroke(); }
+  /* 쌓인 블럭 */
+  for (let y = HIDDEN; y < TOTAL; y++) for (let x = 0; x < COLS; x++) {
+    const c = game.grid[y][x];
+    if (c) drawCell(ctx, x, y - HIDDEN, CELL, COLORS[c]);
+  }
+  if (!game.alive) return;
+  /* 고스트 */
+  const gy = game.ghostY();
+  const { mat, x: px, y: py, type } = game.cur;
+  for (let y = 0; y < mat.length; y++) for (let x = 0; x < mat.length; x++) {
+    if (mat[y][x] && gy + y >= HIDDEN)
+      drawCell(ctx, px + x, gy + y - HIDDEN, CELL, COLORS[type], true);
+  }
+  /* 현재 조각 */
+  for (let y = 0; y < mat.length; y++) for (let x = 0; x < mat.length; x++) {
+    if (mat[y][x] && py + y >= HIDDEN)
+      drawCell(ctx, px + x, py + y - HIDDEN, CELL, COLORS[type]);
+  }
+}
+
+function drawPieceAt(ctx, type, cx, cy, size) {
+  const m = SHAPES[type];
+  let minX = 4, maxX = -1, minY = 4, maxY = -1;
+  for (let y = 0; y < m.length; y++) for (let x = 0; x < m.length; x++) {
+    if (m[y][x]) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+  }
+  const w = (maxX - minX + 1) * size, h = (maxY - minY + 1) * size;
+  for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+    if (m[y][x]) {
+      const px = cx - w / 2 + (x - minX) * size, py = cy - h / 2 + (y - minY) * size;
+      ctx.save(); ctx.translate(px, py);
+      drawCell(ctx, 0, 0, size, COLORS[type]);
+      ctx.restore();
+    }
+  }
+}
+
+function drawHold(canvas, game) {
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0b0f1a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (game.hold) {
+    ctx.globalAlpha = game.canHold ? 1 : 0.35;
+    drawPieceAt(ctx, game.hold, canvas.width / 2, canvas.height / 2, 20);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawNext(canvas, game) {
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0b0f1a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  game.queue.slice(0, 5).forEach((t, i) => {
+    drawPieceAt(ctx, t, canvas.width / 2, 34 + i * 62, 18);
+  });
+}
+
+function drawSnapshot(canvas, snap) {
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0b0f1a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (!snap) return;
+  const size = canvas.width / COLS;
+  const rows = snap.split('|');
+  for (let y = 0; y < rows.length; y++) for (let x = 0; x < COLS; x++) {
+    const c = rows[y][x];
+    if (c && c !== '.') { ctx.fillStyle = COLORS[c] || '#888'; ctx.fillRect(x * size, y * size, size - 0.5, size - 0.5); }
+  }
+}
+
+/* ---------- 입력 (키보드 DAS + 터치) ---------- */
+const Input = {
+  game: null,
+  paused: false,
+  keys: {},
+  dasTimer: 0, arrTimer: 0, dasDir: 0,
+  softTimer: 0,
+
+  init() {
+    document.addEventListener('keydown', (e) => {
+      if (!this.game || !this.game.alive || this.paused) {
+        if (e.code === 'KeyP') togglePause();
+        return;
+      }
+      if (e.repeat) { e.preventDefault(); return; }
+      switch (e.code) {
+        case 'ArrowLeft': this.dasDir = -1; this.dasTimer = 0; this.game.move(-1); break;
+        case 'ArrowRight': this.dasDir = 1; this.dasTimer = 0; this.game.move(1); break;
+        case 'ArrowDown': this.keys.soft = true; this.game.softDrop(); this.softTimer = 0; break;
+        case 'ArrowUp': case 'KeyX': this.game.rotate(1); break;
+        case 'KeyZ': this.game.rotate(-1); break;
+        case 'Space': e.preventDefault(); this.game.hardDrop(); break;
+        case 'KeyC': case 'ShiftLeft': case 'ShiftRight': this.game.holdPiece(); break;
+        case 'KeyP': togglePause(); break;
+      }
+      if (['ArrowLeft','ArrowRight','ArrowDown','Space','ArrowUp'].includes(e.code)) e.preventDefault();
+    });
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'ArrowLeft' && this.dasDir === -1) this.dasDir = 0;
+      if (e.code === 'ArrowRight' && this.dasDir === 1) this.dasDir = 0;
+      if (e.code === 'ArrowDown') this.keys.soft = false;
+    });
+    /* 터치 버튼 */
+    const bind = (id, down, repeat) => {
+      const el = $(id);
+      if (!el) return;
+      let iv = null;
+      const start = (e) => {
+        e.preventDefault(); down();
+        if (repeat) iv = setInterval(down, 90);
+      };
+      const stop = () => { if (iv) { clearInterval(iv); iv = null; } };
+      el.addEventListener('pointerdown', start);
+      el.addEventListener('pointerup', stop);
+      el.addEventListener('pointerleave', stop);
+      el.addEventListener('pointercancel', stop);
+    };
+    bind('#tLeft', () => this.game && this.game.alive && !this.paused && this.game.move(-1), true);
+    bind('#tRight', () => this.game && this.game.alive && !this.paused && this.game.move(1), true);
+    bind('#tDown', () => this.game && this.game.alive && !this.paused && this.game.softDrop(), true);
+    bind('#tRot', () => this.game && this.game.alive && !this.paused && this.game.rotate(1));
+    bind('#tDrop', () => this.game && this.game.alive && !this.paused && this.game.hardDrop());
+    bind('#tHold', () => this.game && this.game.alive && !this.paused && this.game.holdPiece());
+  },
+
+  tick(dt) {
+    if (!this.game || !this.game.alive || this.paused) return;
+    if (this.dasDir !== 0) {
+      this.dasTimer += dt;
+      if (this.dasTimer >= 160) {
+        this.arrTimer += dt;
+        if (this.arrTimer >= 45) { this.game.move(this.dasDir); this.arrTimer = 0; }
+      }
+    } else { this.dasTimer = 0; this.arrTimer = 0; }
+    if (this.keys.soft) {
+      this.softTimer += dt;
+      if (this.softTimer >= 50) { this.game.softDrop(); this.softTimer = 0; }
+    }
+  },
+};
+
+/* ---------- 게임 세션 ---------- */
+const Session = {
+  game: null, mode: 'single', raf: 0, lastTs: 0,
+  versus: { players: [], oppEls: {}, aliveIds: new Set(), lastSync: 0, finished: false },
+
+  startSingle() {
+    this.mode = 'single';
+    this.game = new Tetris(null, {
+      onLock: () => {},
+      onTopOut: () => this.singleGameOver(),
+    });
+    Input.game = this.game; Input.paused = false;
+    $('#overlay').classList.remove('show');
+    $('#versusArea').style.display = 'none';
+    showScreen('screen-game');
+    this.runLoop();
+  },
+
+  startVersus(seed, players) {
+    this.mode = 'versus';
+    const v = this.versus;
+    v.players = players; v.finished = false;
+    v.aliveIds = new Set(players.map(p => p.id));
+    v.lastSync = 0;
+    /* 상대 미니보드 생성 */
+    const area = $('#versusArea');
+    area.innerHTML = ''; area.style.display = 'flex';
+    v.oppEls = {};
+    for (const p of players) {
+      if (p.id === Net.playerId) continue;
+      const wrap = document.createElement('div');
+      wrap.className = 'opp';
+      wrap.innerHTML = `<canvas width="100" height="200"></canvas>
+        <div class="opp-name">${escapeHtml(p.nickname)}</div>
+        <div class="opp-score">0</div>`;
+      area.appendChild(wrap);
+      v.oppEls[p.id] = wrap;
+    }
+    this.game = new Tetris(seed, {
+      onLock: (cleared) => this.onVersusLock(cleared),
+      onTopOut: () => this.onMyTopout(),
+    });
+    Input.game = this.game; Input.paused = false;
+    $('#overlay').classList.remove('show');
+    showScreen('screen-game');
+    /* 3초 카운트다운 */
+    Input.paused = true;
+    let n = 3;
+    const ov = $('#overlay'), msg = $('#overlayMsg');
+    $('#overlayButtons').innerHTML = '';
+    ov.classList.add('show');
+    msg.textContent = n;
+    const iv = setInterval(() => {
+      n--;
+      if (n > 0) msg.textContent = n;
+      else {
+        clearInterval(iv); ov.classList.remove('show');
+        Input.paused = false;
+        this.lastTs = 0;
+      }
+    }, 1000);
+    this.runLoop();
+  },
+
+  onVersusLock(cleared) {
+    const atk = ATTACK[cleared];
+    if (atk > 0) {
+      const targets = [...this.versus.aliveIds].filter(id => id !== Net.playerId);
+      if (targets.length) {
+        const t = targets[Math.floor(Math.random() * targets.length)];
+        Net.send('attack', { from: Net.playerId, target: t, n: atk });
+      }
+    }
+    this.syncState(true);
+  },
+
+  syncState(force = false) {
+    if (this.mode !== 'versus') return;
+    const now = performance.now();
+    if (!force && now - this.versus.lastSync < 350) return;
+    this.versus.lastSync = now;
+    Net.send('state', {
+      id: Net.playerId,
+      snap: this.game.snapshot(),
+      score: this.game.score,
+      alive: this.game.alive,
+    });
+  },
+
+  onMyTopout() {
+    if (this.mode === 'single') return;
+    this.versus.aliveIds.delete(Net.playerId);
+    Net.send('topout', { id: Net.playerId });
+    this.syncState(true);
+    const place = this.versus.aliveIds.size + 1;
+    this.showVersusResult(`${place}위로 탈락...`, false);
+    this.checkVersusEnd();
+  },
+
+  onOppState(p) {
+    const el = this.versus.oppEls[p.id];
+    if (!el) return;
+    drawSnapshot(el.querySelector('canvas'), p.snap);
+    el.querySelector('.opp-score').textContent = p.score.toLocaleString();
+    if (!p.alive) el.classList.add('dead');
+  },
+
+  onOppTopout(id) {
+    this.versus.aliveIds.delete(id);
+    const el = this.versus.oppEls[id];
+    if (el) el.classList.add('dead');
+    this.checkVersusEnd();
+  },
+
+  onOppLeft(id) {
+    if (this.mode !== 'versus' || this.versus.finished) return;
+    if (this.versus.aliveIds.has(id) && id !== Net.playerId) this.onOppTopout(id);
+  },
+
+  checkVersusEnd() {
+    const v = this.versus;
+    if (v.finished) return;
+    if (v.aliveIds.size === 1 && v.aliveIds.has(Net.playerId)) {
+      v.finished = true;
+      this.showVersusResult('🏆 승리!', true);
+    } else if (v.aliveIds.size <= 1) {
+      v.finished = true;
+    }
+  },
+
+  showVersusResult(text, stop) {
+    const ov = $('#overlay');
+    $('#overlayMsg').textContent = text;
+    $('#overlayButtons').innerHTML = '';
+    const btn = document.createElement('button');
+    btn.textContent = '대기실로 돌아가기';
+    btn.onclick = () => { ov.classList.remove('show'); Lobby.backToLobby(); };
+    $('#overlayButtons').appendChild(btn);
+    ov.classList.add('show');
+    if (stop && this.game) this.game.alive = false;
+  },
+
+  async singleGameOver() {
+    const g = this.game;
+    const ov = $('#overlay');
+    $('#overlayMsg').innerHTML =
+      `게임 오버<br><span class="big">${g.score.toLocaleString()}</span>점<br>` +
+      `<span class="sub">${g.lines}줄 · 레벨 ${g.level}</span>`;
+    const btns = $('#overlayButtons');
+    btns.innerHTML = '';
+    const mk = (label, fn) => {
+      const b = document.createElement('button');
+      b.textContent = label; b.onclick = fn; btns.appendChild(b); return b;
+    };
+    mk('다시 하기', () => this.startSingle());
+    mk('메뉴로', () => { this.stopLoop(); showScreen('screen-menu'); });
+    ov.classList.add('show');
+    /* 점수 등록 */
+    if (Leaderboard.available() && g.score > 0) {
+      const nick = await ensureNickname();
+      if (nick) {
+        try {
+          await Leaderboard.submit(nick, g.score, g.lines, g.level);
+          const note = document.createElement('div');
+          note.className = 'sub';
+          note.textContent = '✓ 랭킹에 등록되었습니다';
+          $('#overlayMsg').appendChild(note);
+        } catch (_) {}
+      }
+    }
+  },
+
+  runLoop() {
+    this.stopLoop();
+    this.lastTs = 0;
+    const loop = (ts) => {
+      this.raf = requestAnimationFrame(loop);
+      if (!this.lastTs) { this.lastTs = ts; return; }
+      const dt = Math.min(ts - this.lastTs, 100);
+      this.lastTs = ts;
+      if (!Input.paused && this.game) {
+        this.game.tick(dt);
+        Input.tick(dt);
+        if (this.mode === 'versus') this.syncState();
+      }
+      if (this.game) {
+        drawBoard($('#board'), this.game);
+        drawHold($('#holdCanvas'), this.game);
+        drawNext($('#nextCanvas'), this.game);
+        $('#statScore').textContent = this.game.score.toLocaleString();
+        $('#statLines').textContent = this.game.lines;
+        $('#statLevel').textContent = this.game.level;
+      }
+    };
+    this.raf = requestAnimationFrame(loop);
+  },
+
+  stopLoop() { if (this.raf) cancelAnimationFrame(this.raf); this.raf = 0; },
+};
+
+function togglePause() {
+  if (Session.mode !== 'single' || !Session.game || !Session.game.alive) return;
+  Input.paused = !Input.paused;
+  const ov = $('#overlay');
+  if (Input.paused) {
+    $('#overlayMsg').textContent = '일시정지';
+    $('#overlayButtons').innerHTML = '';
+    const b = document.createElement('button');
+    b.textContent = '계속하기 (P)';
+    b.onclick = togglePause;
+    $('#overlayButtons').appendChild(b);
+    ov.classList.add('show');
+    Session.lastTs = 0;
+  } else ov.classList.remove('show');
+}
+
+/* ---------- 대전 대기실 ---------- */
+const Lobby = {
+  maxPlayers: 2,
+
+  open(maxPlayers) {
+    if (!Net.available()) {
+      alert('대전 모드를 사용하려면 config.js에 Supabase 설정이 필요합니다.');
+      return;
+    }
+    this.maxPlayers = maxPlayers;
+    $('#lobbyTitle').textContent = maxPlayers === 2 ? '1:1 대결' : '멀티 대결 (최대 4인)';
+    $('#lobbySetup').style.display = 'block';
+    $('#lobbyRoom').style.display = 'none';
+    $('#joinCode').value = '';
+    showScreen('screen-lobby');
+  },
+
+  async createRoom() {
+    const nick = await ensureNickname();
+    if (!nick) return;
+    try {
+      setLobbyBusy(true);
+      await Net.create(nick, this.maxPlayers);
+      this.enterRoom();
+    } catch (e) { alert(e.message); }
+    finally { setLobbyBusy(false); }
+  },
+
+  async joinRoom() {
+    const code = $('#joinCode').value.trim().toUpperCase();
+    if (code.length !== 4) { alert('4자리 방 코드를 입력하세요.'); return; }
+    const nick = await ensureNickname();
+    if (!nick) return;
+    try {
+      setLobbyBusy(true);
+      await Net.join(code, nick);
+      this.maxPlayers = Net.maxPlayers;
+      this.enterRoom();
+    } catch (e) { alert(e.message); }
+    finally { setLobbyBusy(false); }
+  },
+
+  enterRoom() {
+    $('#lobbySetup').style.display = 'none';
+    $('#lobbyRoom').style.display = 'block';
+    $('#roomCode').textContent = Net.code;
+    Net.handlers.onMembers = () => this.renderMembers();
+    Net.handlers.onStart = (p) => Session.startVersus(p.seed, p.players);
+    Net.handlers.onState = (p) => Session.onOppState(p);
+    Net.handlers.onAttack = (p) => {
+      if (p.target === Net.playerId && Session.game && Session.game.alive)
+        Session.game.receiveGarbage(p.n);
+    };
+    Net.handlers.onTopout = (p) => Session.onOppTopout(p.id);
+    this.renderMembers();
+  },
+
+  renderMembers() {
+    const list = $('#memberList');
+    const ids = Object.keys(Net.members);
+    list.innerHTML = ids.map(id => {
+      const m = Net.members[id];
+      const me = id === Net.playerId ? ' (나)' : '';
+      return `<li>${escapeHtml(m.nickname || '...')}${me}</li>`;
+    }).join('');
+    $('#memberCount').textContent = `${ids.length} / ${Net.maxPlayers}`;
+    /* 진행 중인 게임에서 나간 사람 처리 */
+    if (Session.mode === 'versus') {
+      for (const p of Session.versus.players) {
+        if (!ids.includes(p.id)) Session.onOppLeft(p.id);
+      }
+    }
+    const startBtn = $('#startBtn');
+    if (Net.isHost()) {
+      startBtn.style.display = 'inline-block';
+      startBtn.disabled = ids.length < 2;
+      startBtn.textContent = ids.length < 2 ? '참가자를 기다리는 중...' : '게임 시작';
+      $('#hostHint').textContent = '';
+    } else {
+      startBtn.style.display = 'none';
+      $('#hostHint').textContent = '방장이 시작하기를 기다리는 중...';
+    }
+  },
+
+  start() {
+    const ids = Object.keys(Net.members);
+    if (ids.length > Net.maxPlayers) { alert('정원을 초과했습니다.'); return; }
+    const payload = Net.startGame();
+    Session.startVersus(payload.seed, payload.players);
+  },
+
+  backToLobby() {
+    Session.stopLoop();
+    $('#versusArea').style.display = 'none';
+    Session.mode = 'single';
+    if (Net.channel) { this.enterRoom(); showScreen('screen-lobby'); }
+    else showScreen('screen-menu');
+  },
+
+  exit() {
+    Net.leave();
+    showScreen('screen-menu');
+  },
+};
+
+function setLobbyBusy(b) {
+  $$('#lobbySetup button').forEach(el => el.disabled = b);
+}
+
+/* ---------- 랭킹 화면 ---------- */
+const RankUI = {
+  period: 'week',
+  async open(period) {
+    if (!Leaderboard.available()) {
+      alert('랭킹을 사용하려면 config.js에 Supabase 설정이 필요합니다.');
+      return;
+    }
+    this.period = period || this.period;
+    showScreen('screen-rank');
+    $$('#rankTabs button').forEach(b =>
+      b.classList.toggle('on', b.dataset.period === this.period));
+    const body = $('#rankBody');
+    body.innerHTML = '<tr><td colspan="4" class="sub">불러오는 중...</td></tr>';
+    const rows = await Leaderboard.top(this.period);
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="4" class="sub">아직 기록이 없습니다. 첫 기록의 주인공이 되어보세요!</td></tr>';
+      return;
+    }
+    const medals = ['🥇', '🥈', '🥉'];
+    body.innerHTML = rows.map((r, i) =>
+      `<tr><td>${medals[i] || (i + 1)}</td><td>${escapeHtml(r.nickname)}</td>` +
+      `<td class="num">${r.score.toLocaleString()}</td><td class="num">${r.lines}</td></tr>`
+    ).join('');
+  },
+};
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* ---------- 초기화 ---------- */
+window.addEventListener('DOMContentLoaded', () => {
+  Input.init();
+  refreshNickUI();
+
+  $('#btnSingle').onclick = () => Session.startSingle();
+  $('#btn1v1').onclick = () => Lobby.open(2);
+  $('#btnMulti').onclick = () => Lobby.open(4);
+  $('#btnRank').onclick = () => RankUI.open('week');
+  $('#btnNick').onclick = () => {
+    const n = (prompt('닉네임 (최대 12자)', getNickname()) || '').trim().slice(0, 12);
+    if (n) setNickname(n);
+  };
+  $('#btnCreateRoom').onclick = () => Lobby.createRoom();
+  $('#btnJoinRoom').onclick = () => Lobby.joinRoom();
+  $('#startBtn').onclick = () => Lobby.start();
+  $('#btnLobbyExit').onclick = () => Lobby.exit();
+  $('#btnGameExit').onclick = () => {
+    if (Session.mode === 'versus') {
+      if (Session.game && Session.game.alive && !Session.versus.finished) {
+        if (!confirm('게임을 포기하고 나갈까요?')) return;
+        Session.game.alive = false;
+        Session.onMyTopout();
+        return;
+      }
+      Lobby.backToLobby();
+    } else {
+      Session.stopLoop();
+      showScreen('screen-menu');
+    }
+  };
+  $$('#rankTabs button').forEach(b => b.onclick = () => RankUI.open(b.dataset.period));
+  $('#btnRankBack').onclick = () => showScreen('screen-menu');
+
+  if (!Net.available()) {
+    $('#btn1v1').classList.add('dim');
+    $('#btnMulti').classList.add('dim');
+    $('#btnRank').classList.add('dim');
+    $('#setupNote').style.display = 'block';
+  }
+});
+
+
+</script>
+</body>
+</html>
