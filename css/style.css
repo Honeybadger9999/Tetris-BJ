@@ -89,9 +89,20 @@ canvas { background: #0b0f1a; border: 2px solid var(--line); border-radius: 6px;
 }
 #overlay.show { display: flex; }
 #overlayButtons { display: flex; flex-direction: column; gap: 10px; }
+.rank-submit { display: flex; flex-direction: column; gap: 8px; padding: 4px 16px 10px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.rank-submit input {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 15px; letter-spacing: 0; text-transform: none;
+  padding: 10px;
+}
+.rank-submit .done { color: var(--accent2); font-size: 15px; padding: 6px 0; }
 
-/* 대전 상대 미니보드 */
-#versusArea { display: none; flex-direction: column; gap: 12px; }
+/* 대전 상대 미니보드: 화면 우측에 고정 → 내 보드는 싱글과 같은 위치 유지 */
+#versusArea {
+  display: none; flex-direction: column; gap: 12px;
+  position: fixed; right: 14px; top: 50%; transform: translateY(-50%);
+  z-index: 5;
+}
 .opp { background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: 8px; }
 .opp canvas { border: none; }
 .opp-name { font-size: 12px; font-weight: 700; margin-top: 4px; }
@@ -146,4 +157,11 @@ input:focus { border-color: var(--accent); }
   #board { width: 250px; height: 500px; }
   .side.right { display: none; }  /* 좁은 화면: NEXT 패널 숨김 */
   .screen { padding: 12px; }
+}
+
+@media (max-width: 900px) {
+  #versusArea { right: 4px; gap: 8px; }
+  .opp canvas { width: 60px; height: 120px; }
+  .opp { padding: 5px; }
+  .opp-name, .opp-score { font-size: 10px; }
 }
