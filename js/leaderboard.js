@@ -9,7 +9,14 @@ const Leaderboard = {
 
   async submit(nickname, score, lines, level) {
     if (!SB || score <= 0) return;
-    const { error } = await SB.from('scores').insert({ nickname, score, lines, level });
+    /* DB 제약 범위로 클램핑 (초과 시 등록 거부되는 것 방지) */
+    const row = {
+      nickname,
+      score: Math.min(Math.floor(score), 2000000000),
+      lines: Math.min(Math.floor(lines), 100000),
+      level: Math.min(Math.floor(level), 999),
+    };
+    const { error } = await SB.from('scores').insert(row);
     if (error) throw error;
   },
 
