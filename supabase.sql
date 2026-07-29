@@ -4,9 +4,9 @@
 create table if not exists public.scores (
   id bigint generated always as identity primary key,
   nickname text not null check (char_length(nickname) between 1 and 12),
-  score integer not null check (score between 1 and 9999999),
-  lines integer not null default 0 check (lines between 0 and 9999),
-  level integer not null default 1 check (level between 1 and 99),
+  score integer not null check (score between 1 and 2000000000),
+  lines integer not null default 0 check (lines between 0 and 100000),
+  level integer not null default 1 check (level between 1 and 999),
   created_at timestamptz not null default now()
 );
 
