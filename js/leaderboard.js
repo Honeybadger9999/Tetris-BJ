@@ -4,18 +4,22 @@
 const Leaderboard = {
   available() { return !!SB; },
 
+  /* true로 바꾸면 닉네임당 최고 기록 1개만 표시 (기존 방식) */
+  BEST_PER_NICKNAME: false,
+
   async submit(nickname, score, lines, level) {
     if (!SB || score <= 0) return;
-    await SB.from('scores').insert({ nickname, score, lines, level });
+    const { error } = await SB.from('scores').insert({ nickname, score, lines, level });
+    if (error) throw error;
   },
 
-  /* period: 'all' | 'week'  → 닉네임별 최고 점수 상위 10명 */
+  /* period: 'all' | 'week'  → 상위 10개 기록 */
   async top(period) {
     if (!SB) return [];
     let q = SB.from('scores')
       .select('nickname, score, lines, level, created_at')
       .order('score', { ascending: false })
-      .limit(100);
+      .limit(this.BEST_PER_NICKNAME ? 100 : 10);
     if (period === 'week') {
       const now = new Date();
       const day = (now.getDay() + 6) % 7; /* 월요일 시작 */
@@ -26,6 +30,7 @@ const Leaderboard = {
     }
     const { data, error } = await q;
     if (error || !data) return [];
+    if (!this.BEST_PER_NICKNAME) return data;
     const seen = new Set(), out = [];
     for (const row of data) {
       if (seen.has(row.nickname)) continue;
