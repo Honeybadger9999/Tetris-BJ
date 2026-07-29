@@ -61,10 +61,10 @@ const ATTACK = [0, 0, 1, 2, 4]; /* 지운 줄 수 → 가비지 공격 줄 수 *
 
 /* ===== 난이도 조절 상수 ===== */
 const LINES_PER_LEVEL = 7;  /* 몇 줄마다 레벨업할지. 낮출수록 레벨이 빨리 오름 (기존 10) */
-const LEVEL_SPEED = 0.8;   /* 레벨당 낙하 간격 배율. 낮을수록 레벨업 시 급가속 (기존 0.85) */
-const TIME_ACCEL = 0.92;    /* 플레이 시간 가속: 분당 배율. 낮을수록 빨리 가속 */
-const TIME_CAP = 0.3;       /* 시간 가속 한도: 0.5=최대 2배, 0.4=2.5배, 0.33≈3배, 0.25=4배 */
-const MIN_GRAVITY = 40;     /* 낙하 간격 하한(ms). 낮출수록 최종 속도가 빨라짐 */
+const LEVEL_SPEED = 0.78;   /* 레벨당 낙하 간격 배율. 낮을수록 레벨업 시 급가속 (기존 0.85) */
+const TIME_ACCEL = 0.9;    /* 플레이 시간 가속: 분당 배율. 낮을수록 빨리 가속 */
+const TIME_CAP = 0.25;       /* 시간 가속 한도: 0.5=최대 2배, 0.4=2.5배, 0.33≈3배, 0.25=4배 */
+const MIN_GRAVITY = 30;     /* 낙하 간격 하한(ms). 낮출수록 최종 속도가 빨라짐 */
 
 class Tetris {
   /* callbacks: onLock(cleared), onTopOut(), onChange() */
