@@ -74,7 +74,7 @@ function drawBoard(canvas, game) {
   /* 고스트 (연하게) */
   const gy = game.ghostY();
   const { mat, x: px, y: py, type } = game.cur;
-  ctx.globalAlpha = 0.21;
+  ctx.globalAlpha = 0.22;
   for (let y = 0; y < mat.length; y++) for (let x = 0; x < mat.length; x++) {
     if (mat[y][x] && gy + y >= HIDDEN)
       drawCell(ctx, px + x, gy + y - HIDDEN, CELL, COLORS[type], true);
@@ -464,8 +464,15 @@ const Session = {
           view.textContent = '랭킹 보기';
           view.onclick = () => { ov.classList.remove('show'); this.stopLoop(); RankUI.open('week'); };
           wrap.appendChild(view);
-        } catch (_) {
+        } catch (err) {
           btn.disabled = false; btn.textContent = '🏆 랭킹 등록 (다시 시도)';
+          let msg = wrap.querySelector('.err');
+          if (!msg) {
+            msg = document.createElement('div');
+            msg.className = 'err sub';
+            wrap.appendChild(msg);
+          }
+          msg.textContent = '실패 사유: ' + ((err && err.message) || err);
         }
       };
     } else if (!Leaderboard.available()) {
