@@ -334,7 +334,7 @@ const Session = {
     this.game = new Tetris(seed, {
       onLock: (cleared, rows) => { addClearEffect(cleared, rows); this.onVersusLock(cleared); },
       onTopOut: () => this.onMyTopout(),
-    });
+    }, { versus: true });
     Input.game = this.game; Input.paused = false;
     $('#overlay').classList.remove('show');
     showScreen('screen-game');
