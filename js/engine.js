@@ -60,15 +60,21 @@ const LINE_SCORE = [0, 100, 300, 500, 800];
 const ATTACK = [0, 0, 1, 2, 4]; /* 지운 줄 수 → 가비지 공격 줄 수 */
 
 /* ===== 난이도 조절 상수 ===== */
-const LINES_PER_LEVEL = 5;  /* 몇 줄마다 레벨업할지. 낮출수록 레벨이 빨리 오름 (기존 10) */
-const LEVEL_SPEED = 0.8;   /* 레벨당 낙하 간격 배율. 낮을수록 레벨업 시 급가속 (기존 0.85) */
-const TIME_ACCEL = 0.88;    /* 플레이 시간 가속: 분당 배율. 낮을수록 빨리 가속 */
-const TIME_CAP = 0.25;       /* 시간 가속 한도: 0.5=최대 2배, 0.4=2.5배, 0.33≈3배, 0.25=4배 */
-const MIN_GRAVITY = 30;     /* 낙하 간격 하한(ms). 낮출수록 최종 속도가 빨라짐 */
+const LINES_PER_LEVEL = 8;  /* 몇 줄마다 레벨업할지. 낮출수록 레벨이 빨리 오름 (기존 10) */
+const LEVEL_SPEED = 0.82;   /* 레벨당 낙하 간격 배율. 낮을수록 레벨업 시 급가속 (기존 0.85) */
+const TIME_ACCEL = 0.97;    /* 플레이 시간 가속: 분당 배율. 낮을수록 빨리 가속 */
+const TIME_CAP = 0.4;       /* 시간 가속 한도: 0.5=최대 2배, 0.4=2.5배, 0.33≈3배, 0.25=4배 */
+const MIN_GRAVITY = 60;     /* 낙하 간격 하한(ms). 낮출수록 최종 속도가 빨라짐 */
+
+/* 대전 모드 공통 가속 (레벨/실력 무관, 경과 시간만으로 전원 동일 속도) */
+const VERSUS_TIME_ACCEL = 0.90; /* 분당 배율: 매분 10%씩 빨라짐 */
+const VERSUS_TIME_CAP = 0.15;   /* 한도: 최대 약 6.7배 (약 18분 도달) */
 
 class Tetris {
-  /* callbacks: onLock(cleared), onTopOut(), onChange() */
-  constructor(seed, callbacks = {}) {
+  /* callbacks: onLock(cleared, rows), onTopOut(), onChange()
+     opts: { versus: true } → 레벨 무관 시간 기반 공통 가속 */
+  constructor(seed, callbacks = {}, opts = {}) {
+    this.versus = !!opts.versus;
     this.rng = mulberry32(seed ?? ((Math.random() * 2 ** 31) | 0));
     this.cb = callbacks;
     this.grid = Array.from({ length: TOTAL }, () => Array(COLS).fill(0));
@@ -236,6 +242,11 @@ class Tetris {
   receiveGarbage(n) { this.pendingGarbage += n; }
 
   gravityMs() {
+    if (this.versus) {
+      /* 대전: 개인 레벨 무시, 경과 시간만으로 전원 동일 속도 */
+      const f = Math.max(VERSUS_TIME_CAP, Math.pow(VERSUS_TIME_ACCEL, this.elapsed / 60000));
+      return Math.max(MIN_GRAVITY, 1000 * f);
+    }
     const base = 1000 * Math.pow(LEVEL_SPEED, this.level - 1);
     /* 플레이 시간에 따른 추가 가속 (TIME_CAP까지) */
     const timeFactor = Math.max(TIME_CAP, Math.pow(TIME_ACCEL, this.elapsed / 60000));
